@@ -70,7 +70,7 @@ def main():
    
    # Get price estimate
     final_price, rough_price = estimator.estimate_price()
-    print(f"\nEstimated price: ${int(final_price):,}")
+    print(f"\nEstimated price: ${int(final_price):,}\nRough price: ${int(rough_price):,}")
    
     # Generate and display chart
     generator = ChartGenerator()
