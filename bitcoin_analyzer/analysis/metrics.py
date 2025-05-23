@@ -39,26 +39,40 @@ class PriceEstimator:
             self.smooth_stencil.append( (.00150 * 2.718281828459045 ** exp_part) + (.0000005 * x) )
             
         # Spike stencil - USD round amounts
-        self.spike_stencil = [0.0] * 803
+        self.spike_stencil = []
+        for n in range(0,803):
+            self.spike_stencil.append(0.0)
         
         # Popular USD amounts and their weights
-        usd_spikes = {
-            40: 0.001300198324984352,   # $1
-            141: 0.001676746949820743,  # $5
-            201: 0.003468805546942046,  # $10
-            261: 0.003341772718156079,  # $20
-            340: 0.003076117748975647,  # $50
-            401: 0.006174500465286022,  # $100
-            461: 0.004097463611984264,  # $200
-            541: 0.003792850444811335,  # $500
-            601: 0.003688240815848247,  # $1000
-            661: 0.001654665137536031,  # $2000
-            741: 0.001154279140906312,  # $5000
-            801: 0.000832244504868709   # $10000
-        }
-        
-        for pos, weight in usd_spikes.items():
-            self.spike_stencil[pos] = weight
+        self.spike_stencil[40] = 0.001300198324984352  # $1
+        self.spike_stencil[141]= 0.001676746949820743  # $5
+        self.spike_stencil[201]= 0.003468805546942046  # $10
+        self.spike_stencil[202]= 0.001991977522512513  # 
+        self.spike_stencil[236]= 0.001905066647961839  # $15
+        self.spike_stencil[261]= 0.003341772718156079  # $20
+        self.spike_stencil[262]= 0.002588902624584287  # 
+        self.spike_stencil[296]= 0.002577893841190244  # $30
+        self.spike_stencil[297]= 0.002733728814200412  # 
+        self.spike_stencil[340]= 0.003076117748975647  # $50
+        self.spike_stencil[341]= 0.005613067550103145  # 
+        self.spike_stencil[342]= 0.003088253178535568  # 
+        self.spike_stencil[400]= 0.002918457489366139  # $100
+        self.spike_stencil[401]= 0.006174500465286022  # 
+        self.spike_stencil[402]= 0.004417068070043504  # 
+        self.spike_stencil[403]= 0.002628663628020371  # 
+        self.spike_stencil[436]= 0.002858828161543839  # $150
+        self.spike_stencil[461]= 0.004097463611984264  # $200
+        self.spike_stencil[462]= 0.003345917406120509  # 
+        self.spike_stencil[496]= 0.002521467726855856  # $300
+        self.spike_stencil[497]= 0.002784125730361008  # 
+        self.spike_stencil[541]= 0.003792850444811335  # $500
+        self.spike_stencil[601]= 0.003688240815848247  # $1000
+        self.spike_stencil[602]= 0.002392400117402263  # 
+        self.spike_stencil[636]= 0.001280993059008106  # $1500
+        self.spike_stencil[661]= 0.001654665137536031  # $2000
+        self.spike_stencil[662]= 0.001395501347054946  # 
+        self.spike_stencil[741]= 0.001154279140906312  # $5000
+        self.spike_stencil[801]= 0.000832244504868709  # $10000
             
     def add_output(self, amount_btc: float):
         """Add a transaction output to the distribution."""
