@@ -1,0 +1,32 @@
+# Default configuration for Bitcoin Analyzer
+bitcoin:
+  # Data directory (defaults to platform-specific location)
+  data_dir: null
+  
+  # RPC connection settings
+  rpc:
+    host: "127.0.0.1"
+    port: 8332
+    # Authentication (leave null to use .cookie file)
+    user: null
+    password: null
+
+# Web server settings
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+
+# Analysis settings
+analysis:
+  # Number of confirmations to wait
+  confirmations: 6
+  
+  # Transaction filters
+  filters:
+    max_inputs: 5
+    required_outputs: 2
+    exclude_coinbase: true
+    exclude_op_return: true
+    max_witness_size: 500
+    exclude_same_day: true
