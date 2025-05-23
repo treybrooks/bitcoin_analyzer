@@ -10,13 +10,6 @@ A Bitcoin RPC client that analyzes blockchain data to estimate historical Bitcoi
 - Web interface for visualization
 - Command-line interface for batch processing
 
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/bitcoin-analyzer.git
-cd bitcoin-analyzer
-
 # Install with Poetry
 poetry install
 
