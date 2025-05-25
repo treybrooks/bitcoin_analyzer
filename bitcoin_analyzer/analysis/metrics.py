@@ -10,6 +10,10 @@ class PriceEstimator:
         self.last_bin_value = 6
         self.bins_per_10x = 200
         
+        # look for prices between 5k and 500k
+        self.min_slide = -141  # $500k
+        self.max_slide = 201   # $5k
+        
         # Initialize bins and stencils
         self._init_bins()
         self._init_stencils()
@@ -94,20 +98,26 @@ class PriceEstimator:
         self._clean_distribution()
         
         # Find best stencil fit
-        best_slide, best_score = self._find_best_fit()
+        best_slide, best_score, total_score = self._find_best_fit()
         
         # Calculate price from slide position
         center_p001 = 601  # 0.001 BTC position
         usd100_in_btc = self.output_bins[center_p001 + best_slide]
-        price_estimate = 100 / usd100_in_btc
+        rough_price_estimate = 100 / usd100_in_btc
         
         # Get neighbor for weighted average
-        neighbor_price = self._get_neighbor_price(best_slide, best_score)
+        neighbor_price, neighbor_score = self._get_neighbor_price(best_slide, best_score)
         
         # Weight average
-        final_price = 0.7 * price_estimate + 0.3 * neighbor_price
+        #weight average the two usd price estimates
+        avg_score = total_score/len(range(self.min_slide,self.max_slide))
+        a1 = best_score - avg_score
+        a2 = abs(neighbor_score - avg_score)
+        w1 = a1/(a1+a2)
+        w2 = a2/(a1+a2)
+        weighted_price_estimate = int(w1*rough_price_estimate + w2*neighbor_price)
         
-        return final_price, price_estimate
+        return weighted_price_estimate
         
     def _clean_distribution(self):
         """Remove noise and normalize the distribution."""
@@ -136,20 +146,22 @@ class PriceEstimator:
                     self.bin_counts[n] = 0.008
                     
     def _find_best_fit(self) -> Tuple[int, float]:
-        """Find the best stencil fit position."""
+        """Find the best stencil fit position.
+        Score is basically fit differencial between stencle and output distribution window
+        """
         best_slide = 0
         best_score = 0
+        total_score = 0 
         
-        min_slide = -141  # $500k
-        max_slide = 201   # $5k
-        
-        for slide in range(min_slide, max_slide):
+        for slide in range(self.min_slide, self.max_slide):
             score = self._calculate_slide_score(slide)
             if score > best_score:
                 best_score = score
                 best_slide = slide
                 
-        return best_slide, best_score
+            total_score += slide
+                
+        return best_slide, best_score, total_score
         
     def _calculate_slide_score(self, slide: int) -> float:
         """Calculate score for a given slide position."""
@@ -189,4 +201,6 @@ class PriceEstimator:
         # Calculate neighbor price
         center_p001 = 601
         usd100_in_btc = self.output_bins[center_p001 + neighbor_slide]
-        return 100 / usd100_in_btc
+        neighbor_price = 100 / usd100_in_btc
+        
+        return neighbor_price, max([up_score, down_score])

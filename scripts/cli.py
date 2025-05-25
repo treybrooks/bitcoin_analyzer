@@ -35,6 +35,8 @@ def main():
         cookie_path=config.cookie_path
     )
     
+    print(f"Get BLock Count: {rpc_client.call('getblockcount')}")
+    
     # Run analysis
     analyzer = BlockchainAnalyzer(rpc_client)
     parser = TransactionParser()

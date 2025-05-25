@@ -15,6 +15,7 @@ class BlockchainAnalyzer:
         
     def get_block_time(self, height: int) -> Tuple[int, str]:
         """Get block timestamp and hash for a given height."""
+        print("Block Hieght: ", height)
         block_hash = self.rpc.call("getblockhash", [height])
         block_header = self.rpc.call("getblockheader", [block_hash, True])
         return block_header['time'], block_hash
