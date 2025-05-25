@@ -69,19 +69,6 @@ def main():
        
         for output in outputs:
            estimator.add_output(output.value_btc)
-           
-#    # Parse transactions
-#     print("Parsing transactions...")
-#     for i, block_hash in enumerate(hashes):
-#        if i % 10 == 0:
-#            print(f"Progress: {i}/{len(hashes)} blocks")
-
-#        block_hex = rpc_client.call("getblock", [block_hash, 0])
-#        print(len(block_hex), type(block_hex))
-#        outputs = parser.parse_block(block_hex, nums[i], times[i])
-       
-#        for output in outputs:
-#            estimator.add_output(output.value_btc)
    
    # Get price estimate
     rough_price = estimator.estimate_price()
