@@ -35,17 +35,18 @@ def main():
         cookie_path=config.cookie_path
     )
     
-    print(f"Get BLock Count: {rpc_client.call('getblockcount')}")
+    print(f"Most Recent Block Height: {rpc_client.call('getblockcount')}")
     
     # Run analysis
     analyzer = BlockchainAnalyzer(rpc_client)
     parser = TransactionParser()
-    estimator = PriceEstimator()
+    estimator = PriceEstimator() # from Metrics
     
     if args.recent_blocks:
         # Analyze recent blocks
         print("Analyzing recent 144 blocks...")
-        start, end, nums, hashes, times = analyzer.get_recent_blocks(144)
+        # start, end, nums, hashes, times = analyzer.get_recent_blocks(144)
+        block_data = analyzer.get_recent_blocks(144)
     else:
        # Analyze specific date
        if args.date:
@@ -56,33 +57,45 @@ def main():
            target_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
        
        print(f"Analyzing blocks for {target_date.strftime('%Y-%m-%d')}...")
-       start, end, nums, hashes, times = analyzer.find_blocks_by_date(target_date)
+       block_data = analyzer.find_blocks_by_date(target_date)
    
-   # Parse transactions
-    print("Parsing transactions...")
-    for i, block_hash in enumerate(hashes):
-       if i % 10 == 0:
-           print(f"Progress: {i}/{len(hashes)} blocks")
+    for i, data in enumerate(block_data):
+        block, time, hash = data
+        if i % 10 == 0:
+            print(f"Progress: {i}/{len(block_data)} blocks")
+            
+        block_hex = rpc_client.call("getblock", [hash, 0])
+        outputs = parser.parse_block(block_hex, block, time)
        
-       block_hex = rpc_client.call("getblock", [block_hash, 0])
-       outputs = parser.parse_block(block_hex, nums[i], times[i])
-       
-       for output in outputs:
+        for output in outputs:
            estimator.add_output(output.value_btc)
+           
+#    # Parse transactions
+#     print("Parsing transactions...")
+#     for i, block_hash in enumerate(hashes):
+#        if i % 10 == 0:
+#            print(f"Progress: {i}/{len(hashes)} blocks")
+
+#        block_hex = rpc_client.call("getblock", [block_hash, 0])
+#        print(len(block_hex), type(block_hex))
+#        outputs = parser.parse_block(block_hex, nums[i], times[i])
+       
+#        for output in outputs:
+#            estimator.add_output(output.value_btc)
    
    # Get price estimate
-    final_price, rough_price = estimator.estimate_price()
-    print(f"\nEstimated price: ${int(final_price):,}\nRough price: ${int(rough_price):,}")
+    rough_price = estimator.estimate_price()
+    print(f"\nEstimated Rough price: ${int(rough_price):,}")
    
-    # Generate and display chart
-    generator = ChartGenerator()
-    html_path = generator.generate_chart(
-       estimator, nums, times, final_price,
-       is_date_mode=not args.recent_blocks,
-       target_date=target_date if not args.recent_blocks else None
-    )
+    # # Generate and display chart
+    # generator = ChartGenerator()
+    # html_path = generator.generate_chart(
+    #    estimator, nums, times, rough_price,
+    #    is_date_mode=not args.recent_blocks,
+    #    target_date=target_date if not args.recent_blocks else None
+    # )
    
-    webbrowser.open(f'file://{os.path.abspath(html_path)}')
+    # webbrowser.open(f'file://{os.path.abspath(html_path)}')
 
 if __name__ == "__main__":
    main()

@@ -1,6 +1,59 @@
 from typing import List, Tuple, Dict
 from math import log10
 
+def build_smooth_stencil():
+        """Initialize smooth and spike stencils for price detection."""
+        # Smooth stencil - Gaussian-like
+        num_elements = 803
+        mean = 411
+        std_dev = 201
+        
+        smooth_stencil = []
+        for x in range(num_elements):
+            exp_part = -((x - mean) ** 2) / (2 * (std_dev ** 2))
+            smooth_stencil.append( (.00150 * 2.718281828459045 ** exp_part) + (.0000005 * x) )
+        
+        return smooth_stencil
+            
+def build_spike_stencil():
+    # Spike stencil - USD round amounts
+    spike_stencil = []
+    for _ in range(803):
+        spike_stencil.append(0.0)
+    
+    # Popular USD amounts and their weights
+    spike_stencil[40] = 0.001300198324984352  # $1
+    spike_stencil[141]= 0.001676746949820743  # $5
+    spike_stencil[201]= 0.003468805546942046  # $10
+    spike_stencil[202]= 0.001991977522512513  # 
+    spike_stencil[236]= 0.001905066647961839  # $15
+    spike_stencil[261]= 0.003341772718156079  # $20
+    spike_stencil[262]= 0.002588902624584287  # 
+    spike_stencil[296]= 0.002577893841190244  # $30
+    spike_stencil[297]= 0.002733728814200412  # 
+    spike_stencil[340]= 0.003076117748975647  # $50
+    spike_stencil[341]= 0.005613067550103145  # 
+    spike_stencil[342]= 0.003088253178535568  # 
+    spike_stencil[400]= 0.002918457489366139  # $100
+    spike_stencil[401]= 0.006174500465286022  # 
+    spike_stencil[402]= 0.004417068070043504  # 
+    spike_stencil[403]= 0.002628663628020371  # 
+    spike_stencil[436]= 0.002858828161543839  # $150
+    spike_stencil[461]= 0.004097463611984264  # $200
+    spike_stencil[462]= 0.003345917406120509  # 
+    spike_stencil[496]= 0.002521467726855856  # $300
+    spike_stencil[497]= 0.002784125730361008  # 
+    spike_stencil[541]= 0.003792850444811335  # $500
+    spike_stencil[601]= 0.003688240815848247  # $1000
+    spike_stencil[602]= 0.002392400117402263  # 
+    spike_stencil[636]= 0.001280993059008106  # $1500
+    spike_stencil[661]= 0.001654665137536031  # $2000
+    spike_stencil[662]= 0.001395501347054946  # 
+    spike_stencil[741]= 0.001154279140906312  # $5000
+    spike_stencil[801]= 0.000832244504868709  # $10000
+    
+    return spike_stencil
+        
 class PriceEstimator:
     """Estimate Bitcoin price from transaction output distributions."""
     
@@ -16,7 +69,13 @@ class PriceEstimator:
         
         # Initialize bins and stencils
         self._init_bins()
-        self._init_stencils()
+        self.spike_stencil = build_spike_stencil()
+        self.smooth_stencil = build_smooth_stencil()
+        
+        # 601 is where 0.001 btc is in the output bell curve
+        self.center = 601
+        self.left   = self.center - int((len(self.spike_stencil) +1)/2)
+        self.right  = self.center + int((len(self.spike_stencil) +1)/2)
         
     def _init_bins(self):
         """Initialize output bell curve bins."""
@@ -29,55 +88,7 @@ class PriceEstimator:
                 
         self.num_bins = len(self.output_bins)
         self.bin_counts = [0.0] * self.num_bins
-        
-    def _init_stencils(self):
-        """Initialize smooth and spike stencils for price detection."""
-        # Smooth stencil - Gaussian-like
-        num_elements = 803
-        mean = 411
-        std_dev = 201
-        
-        self.smooth_stencil = []
-        for x in range(num_elements):
-            exp_part = -((x - mean) ** 2) / (2 * (std_dev ** 2))
-            self.smooth_stencil.append( (.00150 * 2.718281828459045 ** exp_part) + (.0000005 * x) )
-            
-        # Spike stencil - USD round amounts
-        self.spike_stencil = []
-        for n in range(0,803):
-            self.spike_stencil.append(0.0)
-        
-        # Popular USD amounts and their weights
-        self.spike_stencil[40] = 0.001300198324984352  # $1
-        self.spike_stencil[141]= 0.001676746949820743  # $5
-        self.spike_stencil[201]= 0.003468805546942046  # $10
-        self.spike_stencil[202]= 0.001991977522512513  # 
-        self.spike_stencil[236]= 0.001905066647961839  # $15
-        self.spike_stencil[261]= 0.003341772718156079  # $20
-        self.spike_stencil[262]= 0.002588902624584287  # 
-        self.spike_stencil[296]= 0.002577893841190244  # $30
-        self.spike_stencil[297]= 0.002733728814200412  # 
-        self.spike_stencil[340]= 0.003076117748975647  # $50
-        self.spike_stencil[341]= 0.005613067550103145  # 
-        self.spike_stencil[342]= 0.003088253178535568  # 
-        self.spike_stencil[400]= 0.002918457489366139  # $100
-        self.spike_stencil[401]= 0.006174500465286022  # 
-        self.spike_stencil[402]= 0.004417068070043504  # 
-        self.spike_stencil[403]= 0.002628663628020371  # 
-        self.spike_stencil[436]= 0.002858828161543839  # $150
-        self.spike_stencil[461]= 0.004097463611984264  # $200
-        self.spike_stencil[462]= 0.003345917406120509  # 
-        self.spike_stencil[496]= 0.002521467726855856  # $300
-        self.spike_stencil[497]= 0.002784125730361008  # 
-        self.spike_stencil[541]= 0.003792850444811335  # $500
-        self.spike_stencil[601]= 0.003688240815848247  # $1000
-        self.spike_stencil[602]= 0.002392400117402263  # 
-        self.spike_stencil[636]= 0.001280993059008106  # $1500
-        self.spike_stencil[661]= 0.001654665137536031  # $2000
-        self.spike_stencil[662]= 0.001395501347054946  # 
-        self.spike_stencil[741]= 0.001154279140906312  # $5000
-        self.spike_stencil[801]= 0.000832244504868709  # $10000
-            
+                    
     def add_output(self, amount_btc: float):
         """Add a transaction output to the distribution."""
         if amount_btc <= 0:
@@ -101,8 +112,7 @@ class PriceEstimator:
         best_slide, best_score, total_score = self._find_best_fit()
         
         # Calculate price from slide position
-        center_p001 = 601  # 0.001 BTC position
-        usd100_in_btc = self.output_bins[center_p001 + best_slide]
+        usd100_in_btc = self.output_bins[self.center + best_slide]
         rough_price_estimate = 100 / usd100_in_btc
         
         # Get neighbor for weighted average
@@ -165,14 +175,10 @@ class PriceEstimator:
         
     def _calculate_slide_score(self, slide: int) -> float:
         """Calculate score for a given slide position."""
-        center = 601 - int((len(self.spike_stencil) + 1) / 2)
-        left = center + slide
-        right = left + len(self.spike_stencil)
-        
-        if left < 0 or right >= len(self.bin_counts):
+        if self.left < 0 or self.right >= len(self.bin_counts):
             return 0
             
-        shifted_curve = self.bin_counts[left:right]
+        shifted_curve = self.bin_counts[self.left+slide:self.right+slide]
         
         # Spike score
         spike_score = sum(shifted_curve[i] * self.spike_stencil[i] 
@@ -199,8 +205,7 @@ class PriceEstimator:
             neighbor_slide = best_slide - 1
             
         # Calculate neighbor price
-        center_p001 = 601
-        usd100_in_btc = self.output_bins[center_p001 + neighbor_slide]
+        usd100_in_btc = self.output_bins[self.center + neighbor_slide]
         neighbor_price = 100 / usd100_in_btc
         
         return neighbor_price, max([up_score, down_score])

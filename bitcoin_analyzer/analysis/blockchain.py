@@ -13,96 +13,60 @@ class BlockchainAnalyzer:
         """Get the current block height."""
         return self.rpc.call("getblockcount")
         
-    def get_block_time(self, height: int) -> Tuple[int, str]:
+    def get_block_timehash(self, height: int) -> Tuple[int, str]:
         """Get block timestamp and hash for a given height."""
-        print("Block Hieght: ", height)
         block_hash = self.rpc.call("getblockhash", [height])
         block_header = self.rpc.call("getblockheader", [block_hash, True])
         return block_header['time'], block_hash
+    
+    def get_first_block_of_day(self, target_date):
+        """
+        Find the first block mined on a specific date using binary search
+        """
+        day_start = int(target_date.timestamp())
+        day_end = int((target_date.timestamp() + 86400))  # +24 hours
         
-    def find_blocks_by_date(self, target_date: datetime) -> Tuple[int, int, List[int], List[str], List[int]]:
-        """Find all blocks mined on a specific date."""
-        # Get current block info
-        block_count = self.get_block_count()
-        block_count_consensus = block_count - 6
+        # Binary search for the last block of the day
+        left, right = 0, self.rpc.call("getblockcount")
+        first_block_of_day = None
         
-        # Get target day timestamp
-        price_day_seconds = int(target_date.timestamp())
-        seconds_in_a_day = 86400
-        
-        # Get latest block time
-        latest_time, _ = self.get_block_time(block_count_consensus)
-        
-        # Estimate starting block
-        seconds_since_price_day = latest_time - price_day_seconds
-        blocks_ago_estimate = round(144 * seconds_since_price_day / seconds_in_a_day)
-        price_day_block_estimate = block_count_consensus - blocks_ago_estimate
-        
-        # Binary search for first block of the day
-        time_in_seconds, _ = self.get_block_time(price_day_block_estimate)
-        seconds_difference = time_in_seconds - price_day_seconds
-        block_jump_estimate = round(144 * seconds_difference / seconds_in_a_day)
-        
-        last_estimate = 0
-        last_last_estimate = 0
-        
-        while block_jump_estimate > 6 and block_jump_estimate != last_last_estimate:
-            last_last_estimate = last_estimate
-            last_estimate = block_jump_estimate
-            price_day_block_estimate = price_day_block_estimate - block_jump_estimate
-            time_in_seconds, _ = self.get_block_time(price_day_block_estimate)
-            seconds_difference = time_in_seconds - price_day_seconds
-            block_jump_estimate = round(144 * seconds_difference / seconds_in_a_day)
-        
-        # Fine-tune to exact first block
-        if time_in_seconds > price_day_seconds:
-            while time_in_seconds > price_day_seconds:
-                price_day_block_estimate -= 1
-                time_in_seconds, _ = self.get_block_time(price_day_block_estimate)
-            price_day_block_estimate += 1
-        else:
-            while time_in_seconds < price_day_seconds:
-                price_day_block_estimate += 1
-                time_in_seconds, _ = self.get_block_time(price_day_block_estimate)
-        
-        # Find all blocks on this day
-        block_start = price_day_block_estimate
-        block_nums = []
-        block_hashes = []
-        block_times = []
-        
-        time_in_seconds, hash_val = self.get_block_time(block_start)
-        day_start = datetime.fromtimestamp(time_in_seconds, tz=timezone.utc).day
-        
-        block_num = block_start
-        while True:
-            time_in_seconds, hash_val = self.get_block_time(block_num)
-            current_day = datetime.fromtimestamp(time_in_seconds, tz=timezone.utc).day
+        while left <= right:
+            mid = (left + right) // 2
+            block = mid
+            block_time, _ = self.get_block_timehash(block)
             
-            if current_day != day_start:
-                break
+            if day_start <= block_time < day_end:
+                # Block is within our target day
+                first_block_of_day = block
+                right = mid - 1  # Look for earlier blocks in the same day
+            elif block_time < day_start:
+                left = mid + 1
+            else:
+                right = mid - 1
                 
-            block_nums.append(block_num)
-            block_hashes.append(hash_val)
-            block_times.append(time_in_seconds)
-            block_num += 1
-            
-        return block_start, block_num, block_nums, block_hashes, block_times
+        return first_block_of_day
+
+    def find_blocks_by_date(self, target_date: datetime):
+        """
+        Find last block in day, retrieve data until day changes
+        """
+        block_num = self.get_first_block_of_day(target_date)
+        oldest_time_allowed = int(target_date.timestamp() + 24*60*60)  # +24 hours
         
-    def get_recent_blocks(self, count: int = 144) -> Tuple[int, int, List[int], List[str], List[int]]:
+        # compare block time to oldest allowable utc timestamp
+        block_data = [self.get_block_metadata(block_num)]
+        while block_data[-1][1] <= oldest_time_allowed:
+            block_num += 1
+            block_data.append(tuple([block_num, *self.get_block_timehash(block_num)]))
+
+        return block_data
+        
+    def get_recent_blocks(self, count: int = 144):
         """Get the most recent N blocks."""
         block_count = self.get_block_count()
-        block_finish = block_count
-        block_start = block_finish - count
+        block_data = []
+        for block_num in range(block_count - count, block_count):
+            block_data.append(tuple([block_num, *self.get_block_timehash(block_num)]))
+        return block_data
         
-        block_nums = []
-        block_hashes = []
-        block_times = []
-        
-        for block_num in range(block_start, block_finish):
-            time_in_seconds, hash_val = self.get_block_time(block_num)
-            block_nums.append(block_num)
-            block_hashes.append(hash_val)
-            block_times.append(time_in_seconds)
-            
-        return block_start, block_finish, block_nums, block_hashes, block_times
+
