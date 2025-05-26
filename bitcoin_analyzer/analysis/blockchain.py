@@ -54,7 +54,7 @@ class BlockchainAnalyzer:
         oldest_time_allowed = int(target_date.timestamp() + 24*60*60)  # +24 hours
         
         # compare block time to oldest allowable utc timestamp
-        block_data = [self.get_block_metadata(block_num)]
+        block_data = [tuple([block_num, *self.get_block_timehash(block_num)])]
         while block_data[-1][1] <= oldest_time_allowed:
             block_num += 1
             block_data.append(tuple([block_num, *self.get_block_timehash(block_num)]))

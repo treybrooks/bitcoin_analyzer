@@ -11,7 +11,8 @@ from bitcoin_analyzer.config import load_bitcoin_config
 from bitcoin_analyzer.rpc.client import BitcoinRPCClient
 from bitcoin_analyzer.analysis.blockchain import BlockchainAnalyzer
 from bitcoin_analyzer.analysis.metrics import PriceEstimator
-from bitcoin_analyzer.analysis.transactions import TransactionParser
+# from bitcoin_analyzer.analysis.transactions import TransactionParser
+from bitcoin_analyzer.analysis.transactions_new import TransactionParser, create_default_parser
 from bitcoin_analyzer.web.chart_generator import ChartGenerator
 
 def main():
@@ -39,13 +40,13 @@ def main():
     
     # Run analysis
     analyzer = BlockchainAnalyzer(rpc_client)
-    parser = TransactionParser()
+    # parser = TransactionParser()
+    parser = create_default_parser(rpc_client)
     estimator = PriceEstimator() # from Metrics
     
     if args.recent_blocks:
         # Analyze recent blocks
         print("Analyzing recent 144 blocks...")
-        # start, end, nums, hashes, times = analyzer.get_recent_blocks(144)
         block_data = analyzer.get_recent_blocks(144)
     else:
        # Analyze specific date
@@ -64,8 +65,9 @@ def main():
         if i % 10 == 0:
             print(f"Progress: {i}/{len(block_data)} blocks")
             
-        block_hex = rpc_client.call("getblock", [hash, 0])
-        outputs = parser.parse_block(block_hex, block, time)
+        # block_hex = rpc_client.call("getblock", [hash, 0])
+        # outputs = parser.parse_block(block_hex, block, time)
+        outputs = parser.parse_block(hash)
        
         for output in outputs:
            estimator.add_output(output.value_btc)
