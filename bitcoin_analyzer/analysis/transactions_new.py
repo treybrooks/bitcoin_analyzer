@@ -15,6 +15,9 @@ class TransactionOutput:
 class TransactionFilter(ABC):
     """Base class for transaction filters."""
     
+    def __init__(self):
+        self.parser = None
+        
     @abstractmethod
     def should_include(self, tx: Dict[str, Any], block_height: int, block_time: int) -> bool:
         """Return True if transaction should be included."""
@@ -24,6 +27,10 @@ class TransactionFilter(ABC):
     def get_name(self) -> str:
         """Return filter name for logging/debugging."""
         pass
+    
+    def set_parser_context(self, parser):
+        """Called by parser when filter is added."""
+        self.parser = parser
 
 class InputCountFilter(TransactionFilter):
     """Filter by number of inputs."""
@@ -40,14 +47,15 @@ class InputCountFilter(TransactionFilter):
 class OutputCountFilter(TransactionFilter):
     """Filter by number of outputs."""
     
-    def __init__(self, exact_outputs: int = 2):
-        self.exact_outputs = exact_outputs
+    def __init__(self, min_outputs: int = 1, max_outputs: int = 2):
+        self.min_outputs = min_outputs
+        self.max_outputs = max_outputs
     
     def should_include(self, tx: Dict[str, Any], block_height: int, block_time: int) -> bool:
-        return len(tx['vout']) == self.exact_outputs
+        return self.min_outputs <= len(tx['vout']) <= self.max_outputs
     
     def get_name(self) -> str:
-        return f"OutputCount=={self.exact_outputs}"
+        return f"{self.min_outputs}<=OutputCount<={self.max_outputs}"
 
 class CoinbaseFilter(TransactionFilter):
     """Filter out coinbase transactions."""
@@ -116,26 +124,26 @@ class WitnessDataFilter(TransactionFilter):
     def get_name(self) -> str:
         return f"WitnessData(max_items={self.max_witness_items}, max_size={self.max_item_size})"
 
-class SameDayTransactionFilter(TransactionFilter):
-    """Filter out transactions that spend outputs from the same day."""
-    
-    def __init__(self, rpc_client, known_txids: Set[str]):
-        self.rpc_client = rpc_client
-        self.known_txids = known_txids
-    
+class InputReuseFilter(TransactionFilter):
+    """Filter out transactions that spend outputs from previously processed transactions."""
     def should_include(self, tx: Dict[str, Any], block_height: int, block_time: int) -> bool:
+        """Reject transactions that spend outputs from our previously seen transactions."""
+        if not self.parser:
+            return True  # No context, can't filter
+        
         for input_data in tx['vin']:
             if 'coinbase' in input_data:
                 continue
             
             prev_txid = input_data['txid']
-            if prev_txid in self.known_txids:
+            # Check if we've seen this txid in our processing session
+            if prev_txid in self.parser.seen_txids:
                 return False
                 
         return True
     
     def get_name(self) -> str:
-        return "NoSameDaySpend"
+        return "NoInputReuse"
 
 class CustomFilter(TransactionFilter):
     """Custom filter using a lambda function."""
@@ -156,17 +164,21 @@ class TransactionParser:
     def __init__(self, rpc_client):
         self.rpc_client = rpc_client
         self.filters: List[TransactionFilter] = []
-        self.todays_txids: Set[str] = set()
+        self.seen_txids: Set[str] = set()
         self.debug = False
         
     def add_filter(self, filter_obj: TransactionFilter) -> 'TransactionParser':
         """Add a filter to the parser. Returns self for chaining."""
+        filter_obj.set_parser_context(self)
         self.filters.append(filter_obj)
         return self
     
     def add_filters(self, *filters: TransactionFilter) -> 'TransactionParser':
         """Add multiple filters. Returns self for chaining."""
-        self.filters.extend(filters)
+        for filter_obj in filters:
+            self.add_filter(filter_obj)
+            # filter_obj.set_parser_context(self)
+            # self.filters.append(filter_obj)
         return self
     
     def clear_filters(self) -> 'TransactionParser':
@@ -192,8 +204,8 @@ class TransactionParser:
             print(f"Processing block {block_height} with {len(block['tx'])} transactions")
         
         for tx in block['tx']:
-            # Add txid to known set for same-day filtering
-            self.todays_txids.add(tx['txid'])
+             # Add txid to seen set BEFORE filtering
+            self.seen_txids.add(tx['txid'])
             
             if self._passes_all_filters(tx, block_height, block_time):
                 tx_outputs = self._extract_outputs(tx, block_height, block_time)
@@ -242,7 +254,8 @@ class TransactionParser:
             return "No filters active"
         
         filter_names = [f.get_name() for f in self.filters]
-        return f"Active filters: {', '.join(filter_names)}"
+        filters_string = ", \n\t".join(filter_names)
+        return f"Active filters: \n\t{filters_string}"
 
 # Usage examples and factory functions
 def create_default_parser(rpc_client) -> TransactionParser:
@@ -250,11 +263,12 @@ def create_default_parser(rpc_client) -> TransactionParser:
     return (TransactionParser(rpc_client)
             .add_filters(
                 InputCountFilter(max_inputs=5),
-                OutputCountFilter(exact_outputs=2),
+                OutputCountFilter(min_outputs=2, max_outputs=2),
                 CoinbaseFilter(),
                 OpReturnFilter(),
                 ValueRangeFilter(min_btc=1e-5, max_btc=1e5),
-                WitnessDataFilter(max_witness_items=100, max_item_size=500)
+                WitnessDataFilter(max_witness_items=100, max_item_size=500),
+                InputReuseFilter()
             ))
 
 def create_simple_parser(rpc_client) -> TransactionParser:
@@ -267,7 +281,6 @@ def create_simple_parser(rpc_client) -> TransactionParser:
 
 # Example usage:
 if __name__ == "__main__":
-    # Setup (assuming you have rpc_client)
     import sys
     import os
 
@@ -311,7 +324,7 @@ if __name__ == "__main__":
     parser.add_filter(CustomFilter(large_transaction_filter, "LargeTransaction>1BTC"))
     
     # Method 4: Add same-day filter dynamically
-    parser.add_filter(SameDayTransactionFilter(rpc_client, parser.todays_txids))
+    parser.add_filter(InputReuseFilter())
     
     # Parse blocks
     print(parser.get_filter_summary())
