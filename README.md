@@ -10,6 +10,9 @@ A Bitcoin RPC client that analyzes blockchain data to estimate historical Bitcoi
 - Web interface for visualization
 - Command-line interface for batch processing
 
+# Diagram
+![project diagram](/docs/project_diagram.png "Project Diagram")
+
 # Install with Poetry
 poetry install
 
