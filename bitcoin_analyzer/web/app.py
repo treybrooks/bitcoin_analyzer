@@ -9,7 +9,7 @@ from ..config import load_bitcoin_config
 from ..rpc.client import BitcoinRPCClient
 from ..analysis.blockchain import BlockchainAnalyzer
 from ..analysis.metrics import PriceEstimator
-from ..analysis.transactions import TransactionParser
+from ..analysis.transactions_old import TransactionParser
 
 app = FastAPI(title="UTXOracle Local")
 

@@ -11,7 +11,10 @@ A Bitcoin RPC client that analyzes blockchain data to estimate historical Bitcoi
 - Command-line interface for batch processing
 
 # Install with Poetry
-`poetry install`
+poetry install
+
+# Or if you want to install dev dependencies specifically
+poetry install --with dev
 
 # Run Base cli command
 + Target Date: -d, --date, Specify a UTC date to evaluate (YYYY/MM/DD)
@@ -30,3 +33,6 @@ Paramters:
 
 Run Example:
 `poetry run python .\scripts\inspect_block.py -p ../ -b 898430 -n 10 -d`
+
+# Run Tests
+`poetry run pytest --cov=bitcoin_analyzer`

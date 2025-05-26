@@ -6,12 +6,6 @@ authors = [
     {name = "Trey Brooks",email = "monroemasseybrooks@gmail.com"}
 ]
 readme = "README.md"
-# requires-python = ">=3.9"
-# dependencies = [
-#     "fastapi (>=0.115.12,<0.116.0)",
-#     "uvicorn[standard] (>=0.34.2,<0.35.0)",
-#     "jinja2 (>=3.1.6,<4.0.0)"
-# ]
 
 [tool.poetry]
 packages = [{include = "bitcoin_analyzer"}]
@@ -31,6 +25,24 @@ pytest = "^7.0"
 black = "^23.0"
 flake8 = "^6.0"
 mypy = "^1.0"
+pytest-cov = "^6.1.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["bitcoin_analyzer"]
+omit = [
+    "*/tests/*",
+    "*/venv/*", 
+    "*/env/*",
+    "*/__init__.py",
+    "setup.py"
+]
 
 [tool.poetry.scripts]
 bitcoin-analyzer = "scripts.run_server:main"

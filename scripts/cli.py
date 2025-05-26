@@ -11,7 +11,7 @@ from bitcoin_analyzer.config import load_bitcoin_config
 from bitcoin_analyzer.rpc.client import BitcoinRPCClient
 from bitcoin_analyzer.analysis.blockchain import BlockchainAnalyzer
 from bitcoin_analyzer.analysis.metrics import PriceEstimator
-from bitcoin_analyzer.analysis.transactions_new import create_default_parser
+from bitcoin_analyzer.analysis.transactions import create_default_parser
 from bitcoin_analyzer.web.chart_generator import ChartGenerator
 
 def main():

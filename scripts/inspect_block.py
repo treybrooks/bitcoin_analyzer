@@ -9,7 +9,7 @@ import os
 
 from bitcoin_analyzer.config import load_bitcoin_config
 from bitcoin_analyzer.rpc.client import BitcoinRPCClient
-from bitcoin_analyzer.analysis.transactions_new import *
+from bitcoin_analyzer.analysis.transactions import *
 
 def main():
     parser = argparse.ArgumentParser(description='Inspect single block')
