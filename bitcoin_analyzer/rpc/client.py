@@ -1,5 +1,7 @@
 import http.client
 import json
+import asyncio
+import aiohttp
 import base64
 import os
 from typing import Any, List, Optional, Tuple
@@ -86,3 +88,75 @@ class BitcoinRPCClient:
             if isinstance(e, (RPCConnectionError, RPCAuthenticationError)):
                 raise
             raise RPCConnectionError(f"Connection failed: {e}")
+
+class AsyncBitcoinRPCClient:
+    """Async version of BitcoinRPCClient for concurrent requests."""
+    
+    def __init__(self, rpc_client, max_concurrent=10):
+        self.rpc_client = rpc_client
+        self.max_concurrent = max_concurrent
+        self._session = None
+        
+    async def __aenter__(self):
+        self._session = aiohttp.ClientSession()
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._session:
+            await self._session.close()
+    
+    async def call_async(self, method: str, params: List[Any] = None):
+        """Make async RPC call."""
+        if params is None:
+            params = []
+            
+        payload = {
+            "jsonrpc": "1.0",
+            "id": "bitcoin-analyzer",
+            "method": method,
+            "params": params
+        }
+        
+        # Use same auth as sync client
+        rpc_user, rpc_pass = self.rpc_client._get_auth_credentials()
+        auth = aiohttp.BasicAuth(rpc_user, rpc_pass)
+        url = f"http://{self.rpc_client.host}:{self.rpc_client.port}"
+        
+        async with self._session.post(url, json=payload, auth=auth) as response:
+            result = await response.json()
+            if 'error' in result and result['error']:
+                raise Exception(f"RPC Error: {result['error']}")
+            return result['result']
+    
+    async def parse_blocks_batch(self, block_hashes: List[str], parser):
+        """Parse multiple blocks concurrently while preserving order."""
+        semaphore = asyncio.Semaphore(self.max_concurrent)
+        
+        async def parse_single_block(block_hash: str):
+            async with semaphore:
+                # Get block data async
+                block = await self.call_async("getblock", [block_hash, 2])
+                
+                # Process block synchronously (reuse existing logic)
+                outputs = []
+                block_height = block['height']
+                block_time = block['time']
+                
+                for tx in block['tx']:
+                    parser.seen_txids.add(tx['txid'])
+                    
+                    if parser._passes_all_filters(tx, block_height, block_time):
+                        tx_outputs = parser._extract_outputs(tx, block_height, block_time)
+                        outputs.extend(tx_outputs)
+                
+                return block_hash, outputs
+        
+        # Start all tasks
+        tasks = [parse_single_block(block_hash) for block_hash in block_hashes]
+        results = await asyncio.gather(*tasks)
+        
+        # Create hash -> outputs mapping to preserve order
+        hash_to_outputs = {block_hash: outputs for block_hash, outputs in results}
+        
+        # Return in original order
+        return [hash_to_outputs.get(block_hash, []) for block_hash in block_hashes]
